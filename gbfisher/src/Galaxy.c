@@ -54,7 +54,7 @@ int main(int argc,char **argv)
   printf("* FisherGalaxy: Galaxy Simulation Tool\n");
   printf("*   Galaxy Simulation: %s\n",argv[1]);
   printf("*   Orbit File:        %s\n",argv[2]);
-  printf("*   Observing Time:    %.1f year\n",atof(argv[3])/YEAR);
+  ////printf("*   Observing Time:    %.1f year\n",atof(argv[3])/YEAR);
   printf("*\n");
   printf("***********************************************************************\n");
   

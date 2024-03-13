@@ -74,7 +74,7 @@ int main(int argc,char **argv)
   /*****************************/
 
   
-  printf("*   Observing Time:      %.1f year (%f s)\n",TOBS/YEAR,TOBS);
+  ////printf("*   Observing Time:      %.1f year (%f s)\n",TOBS/YEAR,TOBS);
   printf("*\n");
   printf("***********************************************************************\n");
   

@@ -41,9 +41,9 @@
 #define DISTANCE_THRESHOLD 0.1 //fractional
 #define FDOT_THRESHOLD 0.2 //fractional
 
-void FISHER(struct Orbit *orbit, double TOBS, double *params, long N, long M, double SXYZ, double SAE, double *SigmaX, double *SigmaAE, double *DrawAE);
+void FISHER(struct Orbit *orbit, double TOBS, double *params, long N, long M, double SXYZ, double SAE, double *SigmaX, double *SigmaAE, double *DrawAE, double *Fisher3, double *Cov3);
 
-static void print_fisher_results(FILE *fptr, double *params, double *sigmas, double SNR, double TOBS)
+static void print_fisher_results(FILE *fptr, double *params, double *sigmas, double SNR, double TOBS, double *Fisher3, double *Cov3)
 {
     /**
      
@@ -79,8 +79,17 @@ static void print_fisher_results(FILE *fptr, double *params, double *sigmas, dou
     //print 2D sky location error in square degrees
     fprintf(fptr, "%e ", sigmas[9]);
     
+    //print Fisher3
+    for(int i=0; i<9; i++) fprintf(fptr, "%e ", Fisher3[i]);
+
+    //print Cov3
+    for(int i=0; i<9; i++) fprintf(fptr, "%e ", Cov3[i]);
+
     //print SNR
-    fprintf(fptr, "%f\n", SNR);
+    fprintf(fptr, "%f", SNR);
+
+    //print newline
+    fprintf(fptr, "\n");
 }
 
 static void get_3d_location(double *params, double *x, double *y, double *z)
@@ -107,6 +116,7 @@ int main(int argc,char **argv)
     double *params, *DrawAE;
     double *X, *A, *E;
     double *SigmaX, *SigmaAE;
+    double *Fisher3, *Cov3;
     double SNRX, SNR;
     double SAE, SXYZ;
     long M, N, q;
@@ -135,7 +145,7 @@ int main(int argc,char **argv)
     //parse command line and set up file streams
     FILE* sourceFile    = fopen(argv[1],"r");
     FILE* noiseFile     = fopen(argv[2],"r");
-    FILE* resultsFileX  = fopen(argv[3], "w");
+    //FILE* resultsFileX  = fopen(argv[3], "w");
     FILE* resultsFileAE = fopen(argv[4], "w");
     FILE* drawFile      = fopen(argv[5], "w");
     FILE* skyFile       = fopen("sky_3d.dat","w");
@@ -160,7 +170,7 @@ int main(int argc,char **argv)
     double TOBS = 1./(f2-f1);
     rewind(noiseFile);
     
-    printf("*   Observing Time:      %.1f year (%f s)\n",TOBS/YEAR,TOBS);
+    ////printf("*   Observing Time:      %.1f year (%f s)\n",TOBS/YEAR,TOBS);
     printf("*\n");
     printf("***********************************************************************\n");
     
@@ -219,6 +229,8 @@ int main(int argc,char **argv)
     params = double_vector(8);
     SigmaX = double_vector(8+1);
     SigmaAE = double_vector(8+1);
+    Fisher3 = double_vector(8);
+    Cov3 = double_vector(8);
     DrawAE = double_vector(8+1);
     
     //Loop through candidate file and comput Fisher for each source
@@ -292,7 +304,7 @@ int main(int argc,char **argv)
             }
             
             //get Fisher estimates for errors
-            FISHER(LISAorbit, TOBS, params, N, M, SXYZ, SAE, SigmaX, SigmaAE, DrawAE);
+            FISHER(LISAorbit, TOBS, params, N, M, SXYZ, SAE, SigmaX, SigmaAE, DrawAE, Fisher3, Cov3);
             
             //nan check
             int err=0;
@@ -323,7 +335,7 @@ int main(int argc,char **argv)
             
             
             //print main output file with parameters & errors
-            print_fisher_results(resultsFileAE,params,SigmaAE,SNR,TOBS);
+            print_fisher_results(resultsFileAE,params,SigmaAE,SNR,TOBS, Fisher3, Cov3);
             
             //alias some of the more relevant uncertainties
             dOmega = SigmaAE[9];
@@ -355,7 +367,7 @@ int main(int argc,char **argv)
             {
                 N_X++;  /* SNR > 7 with just Michelson */
                 
-                print_fisher_results(resultsFileX,params,SigmaX,SNRX,TOBS);
+                //print_fisher_results(resultsFileX,params,SigmaX,SNRX,TOBS);
                 
                 //alias some of the more relevant uncertainties
                 dOmega = SigmaX[9];
@@ -409,7 +421,7 @@ int main(int argc,char **argv)
     
     
     fclose(resultsFileAE);
-    fclose(resultsFileX);
+    //fclose(resultsFileX);
     fclose(skyFile);
     fclose(allSkyFile);
     
@@ -443,7 +455,7 @@ int main(int argc,char **argv)
 }
 
 
-void FISHER(struct Orbit *orbit, double TOBS, double *Params, long N, long M, double SXYZ, double SAE, double *SigmaX, double *SigmaAE, double *DrawAE)
+void FISHER(struct Orbit *orbit, double TOBS, double *Params, long N, long M, double SXYZ, double SAE, double *SigmaX, double *SigmaAE, double *DrawAE, double *Fisher3, double *Cov3)
 {
     
     int i, j;
@@ -627,6 +639,17 @@ void FISHER(struct Orbit *orbit, double TOBS, double *Params, long N, long M, do
     
     double **evector = double_matrix(d-1,d-1);
     double *evalue = double_vector(d-1);
+    // Assign Fisher3 info
+    Fisher3[0] = Fisher2[0][0];
+    Fisher3[1] = Fisher2[0][3];
+    Fisher3[2] = Fisher2[0][7];
+    Fisher3[3] = Fisher2[3][0];
+    Fisher3[4] = Fisher2[3][3];
+    Fisher3[5] = Fisher2[3][7];
+    Fisher3[6] = Fisher2[7][0];
+    Fisher3[7] = Fisher2[7][3];
+    Fisher3[8] = Fisher2[7][7];
+    //Inverts Fisher2
     matrix_eigenstuff(Fisher2,evector,evalue,d);
     for (i = 0; i < d; i++)for (j = 0; j < d; j++) Cov2[i][j] = Fisher2[i][j];
     
@@ -658,6 +681,15 @@ void FISHER(struct Orbit *orbit, double TOBS, double *Params, long N, long M, do
     for (i = 0; i < d; i++) SigmaAE[i] = sqrt(Cov2[i][i]);
     
     SigmaAE[9] = 2.0*M_PI*sin(Params[1])*sqrt(Cov2[1][1]*Cov2[2][2] - Cov2[2][1]*Cov2[2][1])/RAD2DEG/RAD2DEG;
+    Cov3[0] = Cov2[0][0];
+    Cov3[1] = Cov2[0][3];
+    Cov3[2] = Cov2[0][7];
+    Cov3[3] = Cov2[3][0];
+    Cov3[4] = Cov2[3][3];
+    Cov3[5] = Cov2[3][7];
+    Cov3[6] = Cov2[7][0];
+    Cov3[7] = Cov2[7][3];
+    Cov3[8] = Cov2[7][7];
     
     d = 8;
     
