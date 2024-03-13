@@ -1,3 +1,6 @@
+*.swp
+*.DS_Store
+*.o
 galactic_binaries/src/gitversion.c
 FisherGalaxy/.DS_Store
 FisherGalaxy/Bright_Remove
